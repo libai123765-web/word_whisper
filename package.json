@@ -7,6 +7,7 @@
     "dev": "node server.js",
     "start": "node server.js",
     "build": "echo \"Static project - no build step\"",
+    "cf:assets": "node deploy/prepare-cloudflare-assets.js",
     "check": "node deploy/smoke-check.js",
     "release": "powershell -ExecutionPolicy Bypass -File .\\deploy\\create-release.ps1",
     "cf:deploy": "wrangler deploy",

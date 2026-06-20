@@ -24,6 +24,9 @@ jobs:
       - name: Smoke check
         run: npm run check
 
+      - name: Prepare static assets
+        run: npm run cf:assets
+
       - name: Validate Cloudflare secrets
         shell: bash
         env:
