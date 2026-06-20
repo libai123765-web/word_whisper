@@ -1,0 +1,30 @@
+{
+  "name": "word-whisper",
+  "version": "1.0.0",
+  "description": "Word Whisper web game",
+  "main": "index.html",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo \"Static project - no build step\"",
+    "check": "node deploy/smoke-check.js",
+    "release": "powershell -ExecutionPolicy Bypass -File .\\deploy\\create-release.ps1",
+    "cf:deploy": "wrangler deploy",
+    "cf:dev": "wrangler dev",
+    "cf:check": "node --check src/cloudflare/worker.js && node --check src/cloudflare/room-do.js"
+  },
+  "keywords": [
+    "game",
+    "typing",
+    "pixel-art",
+    "cozy",
+    "word",
+    "vocabulary",
+    "cloudflare"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^4.23.0"
+  }
+}

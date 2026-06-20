@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>单词物语 · Word Whisper</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Noto+Sans+SC:wght@400;500;600;700;800;900&family=Nunito:wght@600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- 音频 -->
+  <audio id="bgm-audio" src="assets/bgm.mp3" loop preload="auto" volume="0.28"></audio>
+
+  <!-- Loading 遮罩 -->
+  <div id="app-loading">
+    <div class="loading-content">
+      <div class="loading-spinner"></div>
+      <p class="loading-title">单词物语</p>
+      <p class="loading-sub">星光正在洒落...</p>
+    </div>
+  </div>
+
+  <!-- ==================== 场景一: 主菜单 ==================== -->
+  <main id="scene-menu" class="scene active">
+
+    <!-- 天空背景 -->
+    <div class="menu-bg">
+      <!-- 太阳 -->
+      <div class="sun">
+        <div class="sun-core"></div>
+        <div class="sun-ray r1"></div>
+        <div class="sun-ray r2"></div>
+        <div class="sun-ray r3"></div>
+        <div class="sun-ray r4"></div>
+      </div>
+      <!-- 远山 -->
+      <div class="distant-hills">
+        <div class="hill hill-1"></div>
+        <div class="hill hill-2"></div>
+        <div class="hill hill-3"></div>
+      </div>
+      <!-- 云朵 -->
+      <div class="cloud cloud-1"></div>
+      <div class="cloud cloud-2"></div>
+      <div class="cloud cloud-3"></div>
+      <div class="cloud cloud-4"></div>
+      <!-- 飞鸟 (CSS绘制) -->
+      <div class="bird bird-1"></div>
+      <div class="bird bird-2"></div>
+      <div class="bird bird-3"></div>
+      <!-- 草地 -->
+      <div class="ground">
+        <div class="grass-layer">
+          <div class="grass-blade" style="left:3%"></div><div class="grass-blade" style="left:8%"></div>
+          <div class="grass-blade" style="left:13%"></div><div class="grass-blade" style="left:17%"></div>
+          <div class="grass-blade" style="left:22%"></div><div class="grass-blade" style="left:27%"></div>
+          <div class="grass-blade" style="left:33%"></div><div class="grass-blade" style="left:38%"></div>
+          <div class="grass-blade" style="left:44%"></div><div class="grass-blade" style="left:49%"></div>
+          <div class="grass-blade" style="left:55%"></div><div class="grass-blade" style="left:61%"></div>
+          <div class="grass-blade" style="left:67%"></div><div class="grass-blade" style="left:72%"></div>
+          <div class="grass-blade" style="left:78%"></div><div class="grass-blade" style="left:84%"></div>
+          <div class="grass-blade" style="left:90%"></div><div class="grass-blade" style="left:96%"></div>
+        </div>
+        <div class="flower" style="left:8%"></div><div class="flower" style="left:22%"></div>
+        <div class="flower" style="left:36%"></div><div class="flower" style="left:50%"></div>
+        <div class="flower" style="left:65%"></div><div class="flower" style="left:78%"></div>
+        <div class="flower" style="left:92%"></div>
+        <!-- 小木栅栏 -->
+        <div class="fence">
+          <div class="fence-post" style="left:0%"></div><div class="fence-post" style="left:20%"></div>
+          <div class="fence-post" style="left:40%"></div><div class="fence-post" style="left:60%"></div>
+          <div class="fence-post" style="left:80%"></div><div class="fence-post" style="left:100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 标题粒子 -->
+    <canvas id="title-particles" class="title-particles"></canvas>
+
+    <!-- 标题 -->
+    <div class="menu-title">
+      <div class="title-ornament left"></div>
+      <h1 class="title-cn">单词物语</h1>
+      <p class="title-en">Word Whisper</p>
+      <div class="title-star"></div>
+      <div class="title-ornament right"></div>
+    </div>
+
+    <!-- 按钮组 -->
+    <nav class="menu-buttons" id="menu-buttons">
+      <button class="wood-btn" data-scene="single" onclick="switchScene('single')" autofocus>
+        <span class="btn-icon">&#9734;</span>
+        <span class="btn-label">单人模式</span>
+        <span class="btn-sub">星空收集</span>
+        <span class="btn-glow"></span>
+      </button>
+      <button class="wood-btn" data-scene="dual" onclick="switchScene('dual')">
+        <span class="btn-icon">&#9733;</span>
+        <span class="btn-label">双人模式</span>
+        <span class="btn-sub">局域网四季推挤</span>
+        <span class="btn-badge">可玩</span>
+        <span class="btn-glow"></span>
+      </button>
+      <button class="wood-btn menu-feature" data-scene="settings" onclick="switchScene('settings')">
+        <span class="btn-icon">⚙️</span>
+        <span class="btn-label">设置</span>
+        <span class="btn-sub">声音 · 速度 · 舒适度</span>
+        <span class="btn-glow"></span>
+      </button>
+      <button class="wood-btn menu-feature" data-scene="achievements" onclick="switchScene('achievements')">
+        <span class="btn-icon">🏅</span>
+        <span class="btn-label">成就</span>
+        <span class="btn-sub">收集徽章与奖励</span>
+        <span class="btn-glow"></span>
+      </button>
+      <button class="wood-btn menu-feature" data-scene="friends" onclick="switchScene('friends')">
+        <span class="btn-icon">🐾</span>
+        <span class="btn-label">好友</span>
+        <span class="btn-sub">邀请伙伴一起练习</span>
+        <span class="btn-glow"></span>
+      </button>
+      <button class="wood-btn menu-feature" data-scene="rank" onclick="switchScene('rank')">
+        <span class="btn-icon">🏆</span>
+        <span class="btn-label">排行</span>
+        <span class="btn-sub">星尘榜 · 连击榜</span>
+        <span class="btn-glow"></span>
+      </button>
+    </nav>
+
+    <!-- 词库选择 -->
+    <div class="wordbank-selector">
+      <button class="chip-btn" id="btn-wordbank" type="button" aria-haspopup="listbox" aria-expanded="false">
+        <span class="chip-icon">&#128218;</span> 词库: CET-4
+        <span class="chip-arrow">&#9656;</span>
+      </button>
+      <div class="wordbank-dropdown" id="wordbank-dropdown" hidden>
+        <div class="wordbank-dropdown-head">
+          <strong>选择词库</strong>
+          <span>直接点选，不再轮换</span>
+        </div>
+        <div class="wordbank-options" id="wordbank-options" role="listbox" aria-label="词库列表"></div>
+      </div>
+    </div>
+
+    <div class="single-config">
+      <button class="chip-btn single-config-btn" id="btn-single-mode">
+        <span class="chip-icon">&#10022;</span> 模式: 经典收集
+        <span class="chip-arrow">&#9656;</span>
+      </button>
+      <button class="chip-btn single-config-btn" id="btn-single-map">
+        <span class="chip-icon">&#128506;</span> 地图: 星谷夜色
+        <span class="chip-arrow">&#9656;</span>
+      </button>
+    </div>
+
+    <!-- 操作提示 -->
+    <p class="hint-text">↑↓ 选择 · Enter 确认 · 点击进入</p>
+  </main>
+
+  <!-- ==================== 场景二: 单人模式 ==================== -->
+  <main id="scene-single" class="scene">
+    <div class="single-scene-meta">
+      <span class="single-mode-badge" id="single-mode-badge">经典收集</span>
+      <button class="single-map-btn" id="btn-cycle-single-map" type="button">地图: 星谷夜色</button>
+    </div>
+
+    <!-- 星空背景 -->
+    <div class="starfield-bg">
+      <canvas id="starfield-canvas"></canvas>
+      <!-- 月亮 -->
+      <div class="moon">
+        <div class="moon-crater c1"></div>
+        <div class="moon-crater c2"></div>
+        <div class="moon-crater c3"></div>
+      </div>
+      <div class="aurora aurora-a"></div>
+      <div class="aurora aurora-b"></div>
+      <div class="shooting-star shooting-star-1"></div>
+      <div class="shooting-star shooting-star-2"></div>
+      <div class="single-cloud single-cloud-1"></div>
+      <div class="single-cloud single-cloud-2"></div>
+    </div>
+
+    <!-- 游戏主画布: 下落词 + 收集特效 -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- 滚动山丘 -->
+    <div class="single-ground">
+      <div class="hill-bg hill-bg-1"></div>
+      <div class="hill-bg hill-bg-2"></div>
+      <div class="hill-bg hill-bg-3"></div>
+      <!-- 萤火虫粒子 -->
+      <canvas id="firefly-canvas"></canvas>
+      <!-- 像素角色 -->
+      <div class="character">
+        <div class="char-hat"></div>
+        <div class="char-head">
+          <div class="char-blush left"></div>
+          <div class="char-blush right"></div>
+        </div>
+        <div class="char-body">
+          <div class="char-belt"></div>
+        </div>
+        <div class="char-legs"></div>
+        <div class="basket">
+          <div class="basket-body"></div>
+          <div class="basket-handle"></div>
+          <div class="basket-glow"></div>
+        </div>
+      </div>
+      <!-- 盆栽 -->
+      <div class="potted-plant">
+        <div class="pot">
+          <div class="pot-rim"></div>
+        </div>
+        <div class="plant-stem"></div>
+        <div class="plant-leaf leaf-1"></div>
+        <div class="plant-leaf leaf-2"></div>
+        <div class="plant-leaf leaf-3"></div>
+        <div class="plant-leaf leaf-4"></div>
+        <div class="plant-sparkle"></div>
+      </div>
+      <div class="single-foreground">
+        <span class="glow-mushroom gm-1"></span>
+        <span class="glow-mushroom gm-2"></span>
+        <span class="glow-reed reed-1"></span>
+        <span class="glow-reed reed-2"></span>
+        <span class="glow-reed reed-3"></span>
+      </div>
+    </div>
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="hud-left hud-chip">
+        <span class="hud-label">生命</span>
+        <span class="hud-hearts" id="single-hearts">
+          <span class="heart-icon">&#9829;</span>
+          <span class="heart-icon">&#9829;</span>
+          <span class="heart-icon">&#9829;</span>
+          <span class="heart-icon empty">&#9825;</span>
+          <span class="heart-icon empty">&#9825;</span>
+        </span>
+      </div>
+      <div class="hud-center">
+        <div class="combo-display" id="combo-display"></div>
+      </div>
+      <div class="hud-right">
+        <span class="hud-score hud-chip">
+          <span class="score-icon">&#10022;</span>
+          星尘: <span id="single-score">0</span>
+        </span>
+        <span class="hud-stage hud-chip">
+          <span id="single-stage-label">阶段</span>: <strong id="single-stage">萤火初醒</strong>
+        </span>
+        <span class="hud-words hud-chip">
+          <span id="single-words-label">单词</span>: <strong id="single-words">0</strong>
+        </span>
+        <span class="hud-pace hud-chip" id="single-pace">
+          速度: <strong>×1.00</strong> <small>🌱 微光起步</small>
+        </span>
+      </div>
+    </div>
+
+    <!-- 暂停/技能信息 -->
+    <div class="pause-info">
+      <span class="pause-btn-icon">&#10074;&#10074;</span> Space 冻结5s×3
+      <span class="pause-divider">|</span>
+      <span class="clear-btn-icon">&#10022;</span> Tab/双击 Space 星爆×1
+    </div>
+
+    <div class="buff-panel collapsible-panel" id="buff-panel" aria-live="polite">
+      <button class="buff-title panel-collapse-toggle" type="button" data-collapse-target="buff-panel" aria-expanded="true" title="收纳/展开增益栏">增益 <em>收起</em></button>
+      <div class="buff-list collapsible-content" id="buff-list"><span class="buff-empty">打中闪光词：获得增益</span></div>
+    </div>
+
+    <div class="quest-panel collapsible-panel" id="quest-panel" aria-live="polite">
+      <button class="quest-title panel-collapse-toggle" type="button" data-collapse-target="quest-panel" aria-expanded="true" title="收纳/展开本局目标">本局目标 <em>收起</em></button>
+      <div class="quest-list collapsible-content" id="quest-list"><span class="quest-empty">开始一局后会生成 3 个目标</span></div>
+    </div>
+
+    <div class="event-panel collapsible-panel" id="event-panel" hidden aria-live="polite"></div>
+
+    <div class="focus-panel">
+      <span class="focus-dot"></span>
+      完成本局目标拿奖励；左侧增益/目标和右侧事件卡都可以点标题收纳，避免遮挡下落词。收词越多下落越快，每 20 词有补给。
+    </div>
+
+    <section class="chef-board" id="chef-board" hidden aria-live="polite">
+      <div class="chef-board-head">
+        <div class="chef-board-title">
+          <span class="chef-kicker">Kitchen Shift</span>
+          <strong id="chef-board-status">厨房轮班</strong>
+        </div>
+        <div class="chef-board-tip" id="chef-board-tip">点击订单卡切换当前订单，按步骤单词完成出餐。</div>
+      </div>
+      <div class="chef-order-list" id="chef-order-list"></div>
+    </section>
+
+    <div class="single-toast" id="toast-single" aria-live="polite"></div>
+
+    <!-- 输入栏 -->
+    <div class="input-bar" id="input-bar-single">
+      <div class="input-bar-border"></div>
+      <span class="input-label">当前输入</span>
+      <span class="input-cursor"></span>
+      <span class="input-text" id="input-text-single">_</span>
+    </div>
+
+    <!-- 手机端虚拟键盘 -->
+    <div class="mobile-keyboard" id="mobile-keyboard" aria-label="手机端虚拟键盘">
+      <div class="mobile-keyboard-row">
+        <button type="button" class="mobile-key" data-key="q">Q</button>
+        <button type="button" class="mobile-key" data-key="w">W</button>
+        <button type="button" class="mobile-key" data-key="e">E</button>
+        <button type="button" class="mobile-key" data-key="r">R</button>
+        <button type="button" class="mobile-key" data-key="t">T</button>
+        <button type="button" class="mobile-key" data-key="y">Y</button>
+        <button type="button" class="mobile-key" data-key="u">U</button>
+        <button type="button" class="mobile-key" data-key="i">I</button>
+        <button type="button" class="mobile-key" data-key="o">O</button>
+        <button type="button" class="mobile-key" data-key="p">P</button>
+      </div>
+      <div class="mobile-keyboard-row middle">
+        <button type="button" class="mobile-key" data-key="a">A</button>
+        <button type="button" class="mobile-key" data-key="s">S</button>
+        <button type="button" class="mobile-key" data-key="d">D</button>
+        <button type="button" class="mobile-key" data-key="f">F</button>
+        <button type="button" class="mobile-key" data-key="g">G</button>
+        <button type="button" class="mobile-key" data-key="h">H</button>
+        <button type="button" class="mobile-key" data-key="j">J</button>
+        <button type="button" class="mobile-key" data-key="k">K</button>
+        <button type="button" class="mobile-key" data-key="l">L</button>
+      </div>
+      <div class="mobile-keyboard-row bottom">
+        <button type="button" class="mobile-key" data-key="z">Z</button>
+        <button type="button" class="mobile-key" data-key="x">X</button>
+        <button type="button" class="mobile-key" data-key="c">C</button>
+        <button type="button" class="mobile-key" data-key="v">V</button>
+        <button type="button" class="mobile-key" data-key="b">B</button>
+        <button type="button" class="mobile-key" data-key="n">N</button>
+        <button type="button" class="mobile-key" data-key="m">M</button>
+        <button type="button" class="mobile-key action" data-key="pause">暂停</button>
+        <button type="button" class="mobile-key action" data-key="clear">消除</button>
+      </div>
+    </div>
+
+    <!-- 收集闪光 -->
+    <div class="collect-flash" id="collect-flash"></div>
+
+    <!-- 结算面板 -->
+    <div class="result-panel" id="result-single" hidden>
+      <div class="result-card">
+        <div class="result-badge">&#127942;</div>
+        <h2 class="result-title">收集完毕!</h2>
+        <div class="result-divider"></div>
+        <div class="result-stats" id="result-stats-single">
+          <p><span class="stat-label">星尘得分</span> <strong id="rs-score">0</strong></p>
+          <p><span class="stat-label">收集单词</span> <strong id="rs-words">0</strong></p>
+          <p><span class="stat-label">抵达阶段</span> <strong id="rs-level">萤火初醒</strong></p>
+          <p><span class="stat-label">正确率</span> <strong id="rs-accuracy">0%</strong></p>
+          <p><span class="stat-label">最高连击</span> <strong class="combo-gold" id="rs-combo">×0</strong></p>
+        </div>
+        <div class="result-unlocks" id="result-unlocks-single">
+          <span class="result-mini-note">完成本局目标或解锁成就后，会在这里显示奖励。</span>
+        </div>
+        <div class="result-flowers">
+          <span class="result-flower">&#10048;</span>
+          <span class="result-flower">&#10048;</span>
+          <span class="result-flower">&#10048;</span>
+        </div>
+        <div class="result-buttons">
+          <button class="wood-btn small" id="btn-replay-single">再来一局</button>
+          <button class="wood-btn small" id="btn-back-single">返回菜单</button>
+        </div>
+        <p class="result-hint">Enter 再来一局 · Esc 返回菜单</p>
+      </div>
+    </div>
+
+    <button class="back-btn" onclick="switchScene('menu')" title="返回菜单">&#x2190; 返回</button>
+  </main>
+
+  <!-- ==================== 场景三: 双人模式 ==================== -->
+  <main id="scene-dual" class="scene">
+
+    <!-- 联机大厅 -->
+    <div class="lobby" id="lobby">
+      <!-- 装饰粒子 -->
+      <canvas id="lobby-particles"></canvas>
+      <div class="lobby-orb lobby-orb-a"></div>
+      <div class="lobby-orb lobby-orb-b"></div>
+      <div class="lobby-card">
+        <div class="lobby-card-border"></div>
+
+        <header class="lobby-header">
+          <div class="lobby-icon-wrap">
+            <span class="lobby-icon">&#127760;</span>
+          </div>
+          <p class="lobby-kicker">双人模式 · LAN Battle</p>
+          <h2 class="lobby-title">双人对战</h2>
+          <p class="lobby-subtitle">支持本机双人立即开玩；上线后也可通过云服务器和公网域名联机同步。</p>
+        </header>
+
+        <div class="lobby-action-grid">
+          <section class="lobby-action-card create-room-card">
+            <div class="action-card-top">
+              <span class="action-badge">房主</span>
+              <span class="action-icon">&#127968;</span>
+            </div>
+            <h3>创建房间</h3>
+            <p>立即生成房间信息，也可以直接开始本机双人打字对战。</p>
+            <button class="wood-btn lobby-primary" id="btn-server">
+              <span class="btn-icon">&#10024;</span>
+              创建房间
+              <span class="btn-sub">开始 / 显示 IP</span>
+              <span class="btn-glow"></span>
+            </button>
+            <ul class="lobby-tips">
+              <li>双方需要连接同一 Wi‑Fi / 局域网</li>
+              <li>创建后将 IP 发给好友</li>
+            </ul>
+          </section>
+
+          <section class="lobby-action-card join-room-card">
+            <div class="action-card-top">
+              <span class="action-badge secondary">好友</span>
+              <span class="action-icon">&#128062;</span>
+            </div>
+            <h3>加入房间</h3>
+            <p>输入房主提供的 IP；如果没有联机服务器，也会进入本机可玩模式。</p>
+            <div class="lobby-ip-group">
+              <label class="ip-label" for="ip-input">房主 IP 地址</label>
+              <input type="text" class="ip-input" placeholder="例如 192.168.1.8" id="ip-input" inputmode="decimal" autocomplete="off">
+              <button class="wood-btn small lobby-join" id="btn-client">加入 / 开始</button>
+            </div>
+          </section>
+        </div>
+
+        <div class="lobby-status-card" id="lobby-status">
+          <div class="status-head"><span class="status-dot"></span><strong>等待连接</strong></div>
+          <p>请选择创建房间，或输入好友的 IP 加入。</p>
+        </div>
+
+        <button class="back-btn lobby-back" onclick="switchScene('menu')">&#x2190; 返回菜单</button>
+      </div>
+    </div>
+
+    <!-- 对战画面 -->
+    <div class="battlefield" id="battlefield" hidden>
+      <!-- 左半区 春季 -->
+      <div class="side side-spring" id="side-spring">
+        <canvas class="petal-canvas" id="petal-canvas-spring"></canvas>
+        <div class="side-content">
+          <div class="side-label">
+            <span class="season-icon">&#127800;</span> 1P · 春
+          </div>
+          <div class="side-word-card">
+            <span class="side-word" id="word-1p">breeze</span>
+            <small class="side-meaning" id="meaning-1p">微风；轻松通过</small>
+          </div>
+          <input class="side-input dual-type-input" id="input-1p" data-player="p1" placeholder="点击这里输入" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="1P 输入目标单词">
+          <div class="side-combo" id="combo-1p">连击 ×0</div>
+          <div class="side-score">
+            <span class="mini-star">&#9734;</span> 收集: <strong id="score-1p">0</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中心藤蔓 -->
+      <div class="vine" id="vine">
+        <div class="vine-stem"></div>
+        <div class="vine-knot vk1"></div>
+        <div class="vine-knot vk2"></div>
+        <div class="vine-knot vk3"></div>
+        <div class="vine-leaf vl1"></div>
+        <div class="vine-leaf vl2"></div>
+        <div class="vine-leaf vl3"></div>
+        <div class="vine-leaf vl4"></div>
+        <div class="vine-flower vf1"></div>
+        <div class="vine-flower vf2"></div>
+      </div>
+
+      <!-- 右半区 秋季 -->
+      <div class="side side-autumn" id="side-autumn">
+        <canvas class="petal-canvas" id="petal-canvas-autumn"></canvas>
+        <div class="side-content">
+          <div class="side-label">
+            <span class="season-icon">&#127810;</span> 2P · 秋
+          </div>
+          <div class="side-word-card">
+            <span class="side-word" id="word-2p">harvest</span>
+            <small class="side-meaning" id="meaning-2p">收获；收割</small>
+          </div>
+          <input class="side-input dual-type-input" id="input-2p" data-player="p2" placeholder="点击这里输入" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="2P 输入目标单词">
+          <div class="side-combo" id="combo-2p">连击 ×0</div>
+          <div class="side-score">
+            <span class="mini-star">&#9733;</span> 收集: <strong id="score-2p">0</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- 顶部HUD -->
+      <div class="battle-hud">
+        <div class="battle-timer-frame">
+          <span class="timer-icon">&#9202;</span>
+          <span class="battle-timer" id="battle-timer">00:60</span>
+        </div>
+        <div class="battle-territory">
+          <span class="territory-spring"></span>
+          <span class="territory-bar" id="territory-bar"></span>
+          <span class="territory-autumn"></span>
+        </div>
+      </div>
+
+      <div class="battle-mode-tip" id="battle-mode-tip">本机双人：两位玩家分别点击左右输入框，输入自己的目标单词，打对就会推动藤蔓。</div>
+      <button class="back-btn battle-back" id="btn-dual-exit" type="button">&#x2190; 返回大厅</button>
+
+      <!-- 结算 -->
+      <div class="result-panel" id="result-dual" hidden>
+        <div class="result-card">
+          <div class="result-badge">&#127942;</div>
+          <h2 class="result-title" id="result-title-dual">春 · 胜利!</h2>
+          <div class="result-divider"></div>
+          <div class="result-stats">
+            <p><span class="stat-label">1P (春)</span> <strong id="result-score-1p">0</strong> · 领地 <span id="result-territory-1p">50%</span></p>
+            <p><span class="stat-label">2P (秋)</span> <strong id="result-score-2p">0</strong> · 领地 <span id="result-territory-2p">50%</span></p>
+          </div>
+          <div class="result-flowers">
+            <span class="result-flower">&#127800;</span>
+            <span class="result-flower">&#127804;</span>
+            <span class="result-flower">&#127810;</span>
+          </div>
+          <div class="result-buttons">
+            <button class="wood-btn small" id="btn-replay-dual">再来一局</button>
+            <button class="wood-btn small" onclick="switchScene('menu')">返回菜单</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+
+
+  <!-- ==================== 场景四: 设置 ==================== -->
+  <main id="scene-settings" class="scene panel-scene advanced-panel settings-world">
+    <section class="feature-shell">
+      <aside class="feature-sidebar">
+        <button class="back-btn panel-back" onclick="switchScene('menu')">← 返回</button>
+        <div class="sidebar-mascot">🐿️</div>
+        <h2>设置小屋</h2>
+        <p>这些选项已真正接入单人模式；保存后下一局马上按参数运行。</p>
+        <div class="sidebar-tabs" role="tablist">
+          <button class="side-tab active" data-panel-tab="basic">节奏</button>
+          <button class="side-tab" data-panel-tab="gameplay">玩法</button>
+          <button class="side-tab" data-panel-tab="comfort">显示</button>
+          <button class="side-tab" data-panel-tab="control">操作</button>
+        </div>
+      </aside>
+      <section class="feature-main glass-main">
+        <div class="panel-topline"><span class="panel-pill">可生效设置</span><span class="panel-status" id="settings-live-status">未保存</span></div>
+        <h2 class="panel-title">游戏设置</h2>
+        <p class="panel-subtitle">速度范围扩大到 15%~240%，并加入消词数量渐进加速；出词密度、Buff、事件、生命和技能次数都会影响单人模式。</p>
+
+        <div class="tab-page active" data-tab-page="basic">
+          <div class="speed-orb-card interactive-card">
+            <div class="speed-orb" id="speed-orb"><span id="speed-value">85</span><small>速度%</small></div>
+            <div class="speed-control">
+              <strong>单词下落速度</strong>
+              <em>15% 极慢，240% 极快；再加上“消词越多越快”的成长曲线，下一局会明显改变节奏。</em>
+              <input id="setting-speed" class="setting-range" type="range" min="15" max="240" value="85" step="1">
+              <div class="speed-labels"><span>15 极慢</span><span>85 标准</span><span>240 极限</span></div>
+            </div>
+          </div>
+          <div class="quick-presets">
+            <button class="preset-chip" data-speed="20">🌙 极慢认词</button>
+            <button class="preset-chip active" data-speed="85">🌿 标准治愈</button>
+            <button class="preset-chip" data-speed="145">☀️ 快速练习</button>
+            <button class="preset-chip" data-speed="215">⚡ 极限挑战</button>
+          </div>
+          <div class="settings-list range-settings">
+            <label class="setting-row"><span><strong>出词密度</strong><em>越高同时出现的单词越多，刷词间隔越短。</em></span><div class="range-field"><input id="setting-density" class="setting-range" type="range" min="1" max="6" value="2"><b id="density-value">偏少</b></div></label>
+            <label class="setting-row"><span><strong>Buff 出现频率</strong><em>0 为关闭，4 会频繁出现强感知 Buff。</em></span><div class="range-field"><input id="setting-buff-frequency" class="setting-range" type="range" min="0" max="4" value="2"><b id="buff-frequency-value">标准</b></div></label>
+            <label class="setting-row"><span><strong>随机事件频率</strong><em>控制流星雨、宝箱词潮、极光护航、潮汐、星河疾跑等玩法变奏出现频率。</em></span><div class="range-field"><input id="setting-event-frequency" class="setting-range" type="range" min="0" max="4" value="2"><b id="event-frequency-value">标准</b></div></label>
+          </div>
+        </div>
+
+        <div class="tab-page" data-tab-page="gameplay">
+          <div class="settings-list range-settings">
+            <label class="setting-row"><span><strong>开局生命</strong><em>影响单人模式开始时的红心数量。</em></span><div class="range-field"><input id="setting-start-lives" class="setting-range" type="range" min="1" max="5" value="3"><b id="start-lives-value">3 颗</b></div></label>
+            <label class="setting-row"><span><strong>冻结时长</strong><em>Space 冻结持续时间，2~9 秒可调。</em></span><div class="range-field"><input id="setting-freeze-seconds" class="setting-range" type="range" min="2" max="9" value="5"><b id="freeze-seconds-value">5 秒</b></div></label>
+            <label class="setting-row"><span><strong>开局冻结次数</strong><em>单局开始时可用的 Space 冻结次数。</em></span><div class="range-field"><input id="setting-freeze-charges" class="setting-range" type="range" min="0" max="6" value="3"><b id="freeze-charges-value">3 次</b></div></label>
+            <label class="setting-row"><span><strong>开局星爆次数</strong><em>Tab 或双击 Space 清屏的初始次数。</em></span><div class="range-field"><input id="setting-starburst-charges" class="setting-range" type="range" min="0" max="5" value="1"><b id="starburst-charges-value">1 次</b></div></label>
+          </div>
+          <div class="settings-list advanced-settings gameplay-toggle-settings">
+            <label class="setting-row"><span><strong>消词渐进加速</strong><em>开启后，收集单词越多，下落速度倍率越高，HUD 会实时显示。</em></span><button class="toggle-btn active" data-setting="progressiveSpeed">开启</button></label>
+            <label class="setting-row"><span><strong>连击热浪</strong><em>每 10 连击触发短时间星尘倍率和热浪视觉反馈。</em></span><button class="toggle-btn active" data-setting="comboFever">开启</button></label>
+            <label class="setting-row"><span><strong>里程碑补给</strong><em>每收集 20 个普通词发放护盾、冻结、星爆或星尘补给。</em></span><button class="toggle-btn active" data-setting="milestoneRewards">开启</button></label>
+          </div>
+        </div>
+
+        <div class="tab-page" data-tab-page="comfort">
+          <div class="settings-list advanced-settings">
+            <label class="setting-row"><span><strong>总是显示中文释义</strong><em>关闭后只显示英文，更像纯打字挑战。</em></span><button class="toggle-btn active" data-setting="showMeaning">开启</button></label>
+            <label class="setting-row"><span><strong>下一键提示</strong><em>在目标词附近显示 NEXT 字母，放大灯 Buff 会强制更明显。</em></span><button class="toggle-btn active" data-setting="nextKeyHint">开启</button></label>
+            <label class="setting-row"><span><strong>危险线提示</strong><em>显示接近漏词的位置线，关闭后画面更干净。</em></span><button class="toggle-btn active" data-setting="dangerLine">开启</button></label>
+            <label class="setting-row"><span><strong>减弱动效</strong><em>减少粒子数量，并关闭大部分漂浮闪烁。</em></span><button class="toggle-btn" data-setting="calm">关闭</button></label>
+            <label class="setting-row"><span><strong>背景氛围</strong><em>控制单人模式背景音乐、极光、流星和萤火虫效果。</em></span><button class="toggle-btn active" data-setting="music">开启</button></label>
+            <label class="setting-row"><span><strong>按键震动</strong><em>手机支持时点击按钮和收集会有轻微反馈。</em></span><button class="toggle-btn active" data-setting="haptic">开启</button></label>
+          </div>
+        </div>
+
+        <div class="tab-page" data-tab-page="control">
+          <div class="settings-list advanced-settings control-toggle-settings">
+            <label class="setting-row"><span><strong>虚拟键盘开关</strong><em>开启后，单人模式显示字母键盘，并保留暂停和消除键；关闭后完全隐藏。</em></span><button class="toggle-btn active" data-setting="mobileKeyboard">开启</button></label>
+          </div>
+          <div class="control-grid">
+            <article class="control-card interactive-card"><b>⌨️ 输入</b><span>敲完整英文单词即可收集；NEXT 提示可在显示页关闭。</span></article>
+            <article class="control-card interactive-card"><b>❄️ 冻结</b><span>Space 使用冻结，冻结时长和次数可在玩法页调整。</span></article>
+            <article class="control-card interactive-card"><b>✨ 星爆</b><span>Tab 或双击 Space 清屏，初始次数可调。</span></article>
+            <article class="control-card interactive-card"><b>🫧 Buff</b><span>闪光词会触发可感知效果：清屏、捕获、停滞、放大、护盾等。</span></article>
+            <article class="control-card interactive-card"><b>💨 渐进加速</b><span>收集越多，速度倍率越高；可在玩法页关闭。</span></article>
+            <article class="control-card interactive-card"><b>🎁 里程碑</b><span>每 20 个普通词给一次补给，帮助你冲更远。</span></article>
+          </div>
+        </div>
+
+        <div class="panel-actions sticky-actions"><button class="wood-btn small" id="btn-save-settings">保存设置</button><button class="wood-btn small ghost" id="btn-reset-settings">恢复默认</button></div>
+        <p class="panel-note" id="settings-note">当前：标准节奏 · 出词偏少 · Buff 标准 · 事件标准。保存后下一局立即生效。</p>
+      </section>
+    </section>
+    <div class="single-toast feature-toast" id="settings-toast"></div>
+  </main>
+
+  <!-- ==================== 场景五: 成就 ==================== -->
+  <main id="scene-achievements" class="scene panel-scene advanced-panel achievement-world">
+    <section class="feature-shell wide-shell">
+      <aside class="feature-sidebar">
+        <button class="back-btn panel-back" onclick="switchScene('menu')">← 返回</button>
+        <div class="sidebar-mascot">🦋</div>
+        <h2>成就花园</h2>
+        <p>成就现在会读取真实本地进度：分数、连击、Buff、任务和随机事件都会累计。</p>
+        <div class="achievement-summary"><span id="ach-unlocked-count">0</span><small>已解锁</small></div>
+      </aside>
+      <section class="feature-main glass-main">
+        <div class="panel-topline"><span class="panel-pill">徽章收藏</span><button class="tiny-filter active" data-ach-filter="all">全部</button><button class="tiny-filter" data-ach-filter="unlocked">已解锁</button><button class="tiny-filter" data-ach-filter="locked">未解锁</button></div>
+        <h2 class="panel-title">成长徽章</h2>
+        <p class="panel-subtitle">单人模式结算时会保存进度，达标后自动解锁并在结算页显示。</p>
+        <div class="achievement-grid advanced-achievements" id="achievement-grid"></div>
+      </section>
+    </section>
+    <div class="detail-drawer" id="achievement-drawer" aria-hidden="true"></div>
+  </main>
+
+  <!-- ==================== 场景六: 好友 ==================== -->
+  <main id="scene-friends" class="scene panel-scene advanced-panel friends-world">
+    <section class="feature-shell wide-shell">
+      <aside class="feature-sidebar">
+        <button class="back-btn panel-back" onclick="switchScene('menu')">← 返回</button>
+        <div class="sidebar-mascot">🏡</div>
+        <h2>好友树屋</h2>
+        <p>邀请、房间码、在线状态和最近互动都放在这里。</p>
+        <div class="room-card"><span>房间码</span><strong id="room-code">WW-0525</strong></div>
+      </aside>
+      <section class="feature-main glass-main">
+        <div class="panel-topline"><span class="panel-pill">一起学习</span><span class="panel-status online">2 位在线</span></div>
+        <h2 class="panel-title">好友互动</h2>
+        <p class="panel-subtitle">加入可点击的邀请、留言、搜索和亲密度卡片反馈。</p>
+        <div class="friend-actions advanced-actions"><button class="wood-btn small" id="btn-invite-friend">生成邀请卡</button><button class="wood-btn small ghost" id="btn-copy-room">复制房间码</button><input id="friend-search" class="soft-search" placeholder="搜索好友 / 状态"></div>
+        <div class="friend-list advanced-friends" id="friend-list"></div>
+      </section>
+    </section>
+    <div class="single-toast feature-toast" id="feature-toast"></div>
+  </main>
+
+  <!-- ==================== 场景七: 排行 ==================== -->
+  <main id="scene-rank" class="scene panel-scene advanced-panel rank-world">
+    <section class="feature-shell wide-shell">
+      <aside class="feature-sidebar">
+        <button class="back-btn panel-back" onclick="switchScene('menu')">← 返回</button>
+        <div class="sidebar-mascot">🏆</div>
+        <h2>星尘榜</h2>
+        <p>突出自己的名次，并加入榜单切换与排名浮动反馈。</p>
+        <div class="rank-podium" id="rank-podium"></div>
+      </aside>
+      <section class="feature-main glass-main">
+        <div class="panel-topline"><span class="panel-pill">本周榜单</span><span class="panel-status">周一刷新</span></div>
+        <h2 class="panel-title">排行榜</h2>
+        <p class="panel-subtitle">星尘榜 / 连击榜可切换，第一名有皇冠动效。</p>
+        <div class="rank-tabs"><button class="rank-tab active" data-rank="score">星尘榜</button><button class="rank-tab" data-rank="combo">连击榜</button></div>
+        <div class="rank-list advanced-rank" id="rank-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="js/word-bank.js" defer></script>
+  <script src="js/study-notes.js" defer></script>
+  <script src="js/game-engine.js" defer></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
