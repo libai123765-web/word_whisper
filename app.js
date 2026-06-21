@@ -1521,6 +1521,27 @@ function isLoopbackHost(raw = '') {
   return ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(hostname);
 }
 
+function isPrivateNetworkHost(raw = '') {
+  const hostname = splitHostAndPort(raw).hostname.toLowerCase();
+  if (!hostname) return false;
+  if (isLoopbackHost(hostname) || hostname.endsWith('.local')) return true;
+  if (/^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
+  if (/^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
+  if (/^169\.254\.\d{1,3}\.\d{1,3}$/.test(hostname)) return true;
+  const match = hostname.match(/^172\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+  if (match) {
+    const second = Number(match[1]);
+    if (second >= 16 && second <= 31) return true;
+  }
+  return false;
+}
+
+function shouldUseHostedRealtime(raw = '') {
+  const currentHost = normalizeNetworkHost(location.host || location.hostname || '');
+  if (!currentHost || isLoopbackHost(currentHost) || isPrivateNetworkHost(currentHost)) return false;
+  return !raw || isPrivateNetworkHost(raw);
+}
+
 function formatHostWithCurrentPort(raw = '') {
   const host = normalizeNetworkHost(raw);
   if (!host) return '';
@@ -1602,7 +1623,8 @@ function resetLobby() {
 
   const invite = state.dualInvite || getDualInviteState();
   const ipInput = $('#ip-input');
-  if (invite?.ip && ipInput && !ipInput.value.trim()) {
+  const inviteUsesHostedRealtime = shouldUseHostedRealtime(invite?.ip || '');
+  if (invite?.ip && ipInput && !ipInput.value.trim() && !inviteUsesHostedRealtime) {
     ipInput.value = invite.ip;
   }
 
@@ -1947,10 +1969,13 @@ function handleDualKeyboard(e) {
 }
 
 function getDualSocketUrl(ip = '') {
-  let host = normalizeNetworkHost(ip || location.host || location.hostname || '127.0.0.1');
+  const currentHost = normalizeNetworkHost(location.host || location.hostname || '');
+  const requestedHost = normalizeNetworkHost(ip || '');
+  let host = shouldUseHostedRealtime(requestedHost)
+    ? currentHost
+    : normalizeNetworkHost(requestedHost || location.host || location.hostname || '127.0.0.1');
   if (!host) host = normalizeNetworkHost(location.host || location.hostname || '127.0.0.1');
   const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  const currentHost = normalizeNetworkHost(location.host || location.hostname || '');
   const parsed = splitHostAndPort(host);
   if (!parsed.port) {
     if (host === currentHost && location.port) {
@@ -2065,15 +2090,28 @@ $('#btn-server')?.addEventListener('click', async () => {
 });
 
 $('#btn-client')?.addEventListener('click', () => {
-  const ip = $('#ip-input')?.value?.trim();
+  const requestedIp = $('#ip-input')?.value?.trim() || '';
+  const ip = shouldUseHostedRealtime(requestedIp) ? '' : requestedIp;
   const roomCode = normalizeRoomCode(state.dualInvite?.roomCode || 'WORD-WHISPER');
-  if (!ip) {
+  if (!requestedIp && !shouldUseHostedRealtime(requestedIp)) {
     updateLobbyStatus('connected', `未输入 IP，已切换为本机双人模式。<div class="lobby-copy-actions"><button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button></div>`, '本机双人');
     return;
   }
-  updateLobbyStatus('waiting', `正在连接 <strong class="ip-value copyable-text">${escapeHTML(ip)}</strong>。如果连接失败，也可以立即开始本机双人。`, '正在加入房间');
+  updateLobbyStatus(
+    'waiting',
+    shouldUseHostedRealtime(requestedIp)
+      ? `正在通过当前网站加入实时房间。<span class="status-note">检测到你处于公网部署站点，系统会优先连接当前 workers.dev 实时通道。</span>`
+      : `正在连接 <strong class="ip-value copyable-text">${escapeHTML(ip)}</strong>。如果连接失败，也可以立即开始本机双人。`,
+    '正在加入房间'
+  );
   connectDualSocket({ ip, roomCode, role: 'p2' }).catch(() => {
-    updateLobbyStatus('disconnected', `没有连接到 ${escapeHTML(ip)} 的实时服务器。<span class="status-note">你可以确认房主是否已经启动本地服务，或确认云服务器和域名已经部署完成；也可以先开始本机双人试玩。</span><div class="lobby-copy-actions"><button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button></div>`, '联机失败');
+    updateLobbyStatus(
+      'disconnected',
+      shouldUseHostedRealtime(requestedIp)
+        ? `没有连接到当前公网实时房间。<span class="status-note">请确认房主和好友都在打开同一个 workers.dev 网站，并使用同一个房间码；然后再试一次。</span><div class="lobby-copy-actions"><button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button></div>`
+        : `没有连接到 ${escapeHTML(ip)}</strong> 的实时服务器。<span class="status-note">你可以确认房主是否已经启动本地服务，或确认云服务器和域名已经部署完成；也可以先开始本机双人试玩。</span><div class="lobby-copy-actions"><button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button></div>`,
+      '联机失败'
+    );
   });
 });
 
@@ -2285,10 +2323,6 @@ const friends = [
   { avatar: '🐻', name: 'Bobo', status: '上次对战：春季胜利', online: false, bond: 48 },
   { avatar: '🐼', name: 'Nana', status: '刚解锁 CET-6', online: false, bond: 38 },
 ];
-const rankData = {
-  score: [ ['你', 1280, '🌟', '+2'], ['Momo', 1160, '🐰', '+1'], ['Kiki', 980, '🦊', '-1'], ['Bobo', 720, '🐻', '0'], ['Nana', 660, '🐼', '+3'] ],
-  combo: [ ['Kiki', 18, '🦊', '+1'], ['你', 14, '🌟', '0'], ['Momo', 12, '🐰', '-1'], ['Bobo', 9, '🐻', '+2'], ['Nana', 7, '🐼', '0'] ],
-};
 let achFilter = 'all';
 
 function createDefaultAchievementStats() {
@@ -2616,15 +2650,6 @@ function renderFriends(keyword = '') {
 }
 $('#friend-search')?.addEventListener('input', (e) => renderFriends(e.target.value));
 
-function renderRank(type = 'score') {
-  const list = $('#rank-list');
-  const podium = $('#rank-podium');
-  if (!list) return;
-  const unit = type === 'score' ? '星尘' : '连击';
-  const data = rankData[type];
-  if (podium) podium.innerHTML = data.slice(0, 3).map((r, i) => `<div class="podium-place p${i + 1}"><span>${r[2]}</span><b>#${i + 1}</b><small>${r[0]}</small></div>`).join('');
-  list.innerHTML = data.map((r, i) => `<article class="rank-row interactive-card ${r[0] === '你' ? 'me' : ''} ${i === 0 ? 'top-one' : ''}" style="animation-delay:${i * 55}ms"><span class="rank-no">${i + 1}</span><span class="rank-avatar">${r[2]}</span><strong>${r[0]} ${i === 0 ? '<i>👑</i>' : ''}</strong><em>${r[1]} ${unit}</em><small class="rank-delta ${r[3].startsWith('+') ? 'up' : r[3].startsWith('-') ? 'down' : ''}">${r[3]}</small></article>`).join('');
-}
 $$('.rank-tab').forEach(tab => tab.addEventListener('click', () => {
   $$('.rank-tab').forEach(t => t.classList.remove('active'));
   tab.classList.add('active');
@@ -2745,16 +2770,22 @@ function getActiveRankType() {
   return document.querySelector('#scene-rank .rank-tab.active')?.dataset.rank || 'friends';
 }
 
-function renderRank(type = getActiveRankType()) {
+function normalizeRankType(type) {
+  if (type === 'history' || type === 'combo') return 'history';
+  return 'friends';
+}
+
+function renderRank(type) {
   configureRankSceneUI();
+  const activeType = normalizeRankType(type || getActiveRankType());
   const list = $('#rank-list');
   const podium = $('#rank-podium');
   if (!list) return;
 
-  const data = getRankRows(type);
+  const data = getRankRows(activeType);
   if (podium) {
     podium.innerHTML = data.slice(0, 3).map((item, index) => `
-      <div class="podium-place p${index + 1} ${type === 'history' ? 'history-place' : ''}">
+      <div class="podium-place p${index + 1} ${activeType === 'history' ? 'history-place' : ''}">
         <span>${item.icon}</span>
         <b>#${index + 1}</b>
         <strong>${escapeHTML(item.name)}</strong>
@@ -2767,7 +2798,7 @@ function renderRank(type = getActiveRankType()) {
     const delta = String(item.delta || '');
     const deltaClass = delta.startsWith('+') ? 'up' : delta.startsWith('-') ? 'down' : '';
     return `
-      <article class="rank-row interactive-card ${item.highlight ? 'me' : ''} ${index === 0 ? 'top-one' : ''} ${type === 'history' ? 'history-row' : ''}" style="animation-delay:${index * 55}ms">
+      <article class="rank-row interactive-card ${item.highlight ? 'me' : ''} ${index === 0 ? 'top-one' : ''} ${activeType === 'history' ? 'history-row' : ''}" style="animation-delay:${index * 55}ms">
         <span class="rank-no">${index + 1}</span>
         <span class="rank-avatar">${item.icon}</span>
         <div class="rank-copy">
@@ -2926,5 +2957,5 @@ window.switchScene = function patchedSwitchScene(name) {
 };
 
 if (audioManager.bgm) {
-  this.bgm.muted = false;
+  audioManager.bgm.muted = false;
 }
