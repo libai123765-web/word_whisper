@@ -21,7 +21,7 @@ export class WordWhisperRoom {
     const role = url.searchParams.get('role') === 'p2' ? 'p2' : 'p1';
     const roomCode = String(url.searchParams.get('room') || 'WORD-WHISPER');
     const sessionId = crypto.randomUUID();
-    const assignedRole = this.assignRole(role, sessionId);
+    const assignedRole = this.assignRole(roomCode, role, sessionId);
 
     this.sessions.set(sessionId, {
       id: sessionId,
@@ -44,22 +44,22 @@ export class WordWhisperRoom {
       type: 'roomJoined',
       roomCode,
       role: assignedRole,
-      players: this.sessions.size,
+      players: this.countRoomPlayers(roomCode),
     });
     this.broadcast(roomCode, {
       type: 'peerJoined',
       roomCode,
       role: assignedRole,
-      players: this.sessions.size,
+      players: this.countRoomPlayers(roomCode),
     }, sessionId);
 
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  assignRole(preferredRole, sessionId) {
+  assignRole(roomCode, preferredRole, sessionId) {
     const used = new Set(
       [...this.sessions.values()]
-        .filter((session) => session.id !== sessionId)
+        .filter((session) => session.id !== sessionId && session.roomCode === roomCode)
         .map((session) => session.role),
     );
     if (!preferredRole || used.has(preferredRole)) {
@@ -85,7 +85,7 @@ export class WordWhisperRoom {
       const roomCode = String(message.roomCode || session.roomCode || 'WORD-WHISPER');
       session.roomCode = roomCode;
       if (message.role === 'p1' || message.role === 'p2') {
-        session.role = this.assignRole(message.role, session.id);
+        session.role = this.assignRole(session.roomCode, message.role, session.id);
       }
       this.send(session.socket, {
         type: 'roomJoined',

@@ -2071,7 +2071,7 @@ function handleDualKeyboard(e) {
   if (e.key === 'ArrowRight') moveVine(1, 1);
 }
 
-function getDualSocketUrl(ip = '') {
+function getDualSocketUrl(ip = '', roomCode = createDualRoomCode(), role = 'p1') {
   const currentHost = normalizeNetworkHost(location.host || location.hostname || '');
   const requestedHost = normalizeNetworkHost(ip || '');
   let host = shouldUseHostedRealtime(requestedHost)
@@ -2089,7 +2089,10 @@ function getDualSocketUrl(ip = '') {
       host = `${host}:3000`;
     }
   }
-  return `${protocol}://${host}/ws`;
+  const wsUrl = new URL(`${protocol}://${host}/ws`);
+  wsUrl.searchParams.set('room', normalizeRoomCode(roomCode));
+  wsUrl.searchParams.set('role', role === 'p2' ? 'p2' : 'p1');
+  return wsUrl.toString();
 }
 
 function closeDualSocket() {
@@ -2105,7 +2108,7 @@ function connectDualSocket({ ip = '', roomCode = createDualRoomCode(), role = 'p
   const normalizedRoomCode = normalizeRoomCode(roomCode);
   state.dualInvite = { ip: ip.trim(), roomCode: normalizedRoomCode, role };
   return new Promise((resolve, reject) => {
-    const socket = new WebSocket(getDualSocketUrl(ip));
+    const socket = new WebSocket(getDualSocketUrl(ip, normalizedRoomCode, role));
     let opened = false;
     const timeout = setTimeout(() => {
       if (!opened) {
@@ -2140,6 +2143,19 @@ function sendDualMessage(message) {
   return true;
 }
 
+function launchHostedBattle(roomCode = createDualRoomCode()) {
+  const normalizedRoomCode = normalizeRoomCode(roomCode);
+  const p1Word = pickDualWord();
+  const p2Word = pickDualWord(p1Word.en);
+  const words = { p1: p1Word, p2: p2Word };
+  if (state.dualSocket) {
+    sendDualMessage({ type: 'battleStart', roomCode: normalizedRoomCode, words });
+    startBattle({ mode: 'lan', role: 'p1', roomCode: normalizedRoomCode, words });
+    return;
+  }
+  startBattle({ mode: 'local', role: 'both', roomCode: normalizedRoomCode, words });
+}
+
 function handleDualSocketMessage(raw) {
   let msg = null;
   try { msg = JSON.parse(raw); } catch (err) { return; }
@@ -2161,11 +2177,7 @@ function handleDualSocketMessage(raw) {
   }
 
   if (msg.type === 'peerJoined' && msg.role === 'p2') {
-    const p1Word = pickDualWord();
-    const p2Word = pickDualWord(p1Word.en);
-    const roomCode = msg.roomCode || createDualRoomCode();
-    sendDualMessage({ type: 'battleStart', roomCode, words: { p1: p1Word, p2: p2Word } });
-    startBattle({ mode: 'lan', role: 'p1', roomCode, words: { p1: p1Word, p2: p2Word } });
+    launchHostedBattle(msg.roomCode || createDualRoomCode());
   }
 
   if (msg.type === 'battleStart') {
@@ -2255,7 +2267,7 @@ document.addEventListener('click', (e) => {
     const mode = startTarget.dataset.dualStart;
     if (mode === 'host') {
       const roomCode = startTarget.dataset.roomCode || createDualRoomCode();
-      startBattle({ mode: state.dualSocket ? 'lan' : 'local', role: state.dualSocket ? 'p1' : 'both', roomCode });
+      launchHostedBattle(roomCode);
     } else {
       startBattle({ mode: 'local', role: 'both' });
     }
