@@ -66,6 +66,7 @@ const state = {
   lastSpaceTime: 0,
   spacePressedOnce: false,
   dual: null,
+  dualLobby: null,
   dualSocket: null,
   dualInvite: null,
   singleRun: null,
@@ -1441,6 +1442,39 @@ async function copyLobbyText(text, successMessage = '已复制') {
 /* ================================================================
    DUAL MODE — Playable Local / LAN-ready Battle
    ================================================================ */
+function showLobbyFeedback(message, isError = false) {
+  const feedback = $('#lobby-copy-feedback');
+  if (!feedback) return;
+  feedback.textContent = message;
+  feedback.classList.toggle('error', isError);
+  feedback.classList.add('show');
+  clearTimeout(feedback._timer);
+  feedback._timer = setTimeout(() => {
+    feedback.classList.remove('show');
+    feedback.classList.remove('error');
+  }, 1800);
+}
+
+function setDualLobbyState(patch = {}) {
+  state.dualLobby = {
+    roomCode: createDualRoomCode(),
+    role: 'p1',
+    players: 1,
+    ...state.dualLobby,
+    ...patch,
+  };
+  return state.dualLobby;
+}
+
+function buildHostBattleButton(roomCode, players = 1) {
+  const canStart = players >= 2;
+  return `<button type="button" class="wood-btn small ghost host-start-btn" data-dual-start="host" data-room-code="${escapeHTML(roomCode)}" ${canStart ? '' : 'disabled aria-disabled="true"'}>${canStart ? '开始游戏' : '等待好友加入'}</button>`;
+}
+
+function buildHostLobbyActions(roomCode, players = 1, inviteUrl = '') {
+  return `<div class="lobby-copy-actions"><button type="button" class="wood-btn small ghost" data-copy-text="${encodeURIComponent(roomCode)}" data-copy-label="房间码已复制">复制房间码</button>${inviteUrl ? `<button type="button" class="wood-btn small ghost" data-copy-text="${encodeURIComponent(inviteUrl)}" data-copy-label="邀请链接已复制">复制邀请链接</button>` : ''}<button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button>${buildHostBattleButton(roomCode, players)}</div>`;
+}
+
 const DUAL_DEFAULT_SECONDS = 60;
 const DUAL_WIN_EDGE = 35;
 
@@ -1672,6 +1706,7 @@ function resetLobby() {
   if (state.countdownInterval) { clearInterval(state.countdownInterval); state.countdownInterval = null; }
   closeDualSocket();
   state.dual = null;
+  state.dualLobby = null;
   state.vineOffset = 0;
   state.territorySpring = 50;
   const hostedLobby = isHostedLobbyMode();
@@ -2145,6 +2180,11 @@ function sendDualMessage(message) {
 
 function launchHostedBattle(roomCode = createDualRoomCode()) {
   const normalizedRoomCode = normalizeRoomCode(roomCode);
+  const lobby = state.dualLobby || {};
+  if ((lobby.role || 'p1') !== 'p1' || Number(lobby.players || 0) < 2) {
+    showLobbyFeedback('请等待双方都进入房间后，再由房主点击“开始游戏”', true);
+    return;
+  }
   const p1Word = pickDualWord();
   const p2Word = pickDualWord(p1Word.en);
   const words = { p1: p1Word, p2: p2Word };
@@ -3066,6 +3106,116 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+buildRoomReadyHTML = function patchedBuildRoomReadyHTML(ips, roomCode = createDualRoomCode()) {
+  const hostedLobby = isHostedLobbyMode();
+  const cleanIps = ips.filter(Boolean);
+  const primary = cleanIps[0] || '127.0.0.1';
+  const shareOrigin = getPreferredShareOrigin(cleanIps);
+  const visitOrigin = shareOrigin || location.origin || buildShareOriginFromHost(primary) || `http://${primary}:3000`;
+  const inviteUrl = hostedLobby
+    ? updateDualInviteUrl('', roomCode, 'p2', visitOrigin)
+    : (shareOrigin
+      ? updateDualInviteUrl('', roomCode, 'p2', shareOrigin)
+      : (cleanIps.length ? updateDualInviteUrl(primary, roomCode, 'p2') : ''));
+
+  if (hostedLobby) {
+    return `
+      <span>房间已创建。让好友打开同一个网站后，输入下方房间码，或直接打开邀请链接即可加入。</span>
+      <div class="ip-copy-panel" aria-label="房间码">
+        <button type="button" class="ip-value copyable-text" data-copy-text="${encodeURIComponent(roomCode)}" data-copy-label="房间码已复制" title="点击复制房间码">${escapeHTML(roomCode)}</button>
+      </div>
+      <span class="status-note">当前公网入口：<strong class="copyable-url">${escapeHTML(visitOrigin)}</strong>。推荐直接复制邀请链接发给好友；双方都进入房间后，房主再点击“开始游戏”。</span>
+      ${buildHostLobbyActions(roomCode, 1, inviteUrl)}
+      <span class="copy-feedback" id="lobby-copy-feedback" aria-live="polite"></span>
+    `;
+  }
+
+  const ipPanel = cleanIps.length
+    ? `
+      <span>房间已创建。把下面的本机 IP 发给好友：</span>
+      <div class="ip-copy-panel" aria-label="本机 IP 地址">
+        ${cleanIps.map(ip => `<button type="button" class="ip-value copyable-text" data-copy-text="${encodeURIComponent(ip)}" data-copy-label="IP 已复制" title="点击复制这个 IP">${escapeHTML(ip)}</button>`).join('')}
+      </div>
+      <span class="status-note">房间码：<strong class="copyable-url">${escapeHTML(roomCode)}</strong>。好友连接同一 Wi‑Fi 后，可访问 <strong class="copyable-url">${escapeHTML(`http://${primary}:3000`)}</strong>，也可以直接打开下方邀请链接自动填好加入信息。</span>
+    `
+    : `
+      <span>没有自动检测到局域网 IP。你仍然可以先开始本机双人对战。</span>
+      <span class="status-note">本地测试时请先用 <strong>npm start</strong> 启动项目；如果已经部署到云服务器，也可以直接把公网域名发给好友联机。</span>
+    `;
+
+  const allIps = cleanIps.join(' / ');
+  const localUrls = cleanIps.map(ip => buildShareOriginFromHost(ip) || `http://${ip}:3000`).join(' / ');
+  const renderedIpPanel = ipPanel.replace(`http://${primary}:3000`, visitOrigin);
+  return `
+    ${renderedIpPanel}
+    <div class="lobby-copy-actions">
+      ${cleanIps.length ? `<button type="button" class="wood-btn small copy-ip-btn" data-copy-text="${encodeURIComponent(primary)}" data-copy-label="IP 已复制">复制主 IP</button>` : ''}
+      ${cleanIps.length > 1 ? `<button type="button" class="wood-btn small ghost" data-copy-text="${encodeURIComponent(allIps)}" data-copy-label="全部 IP 已复制">复制全部 IP</button>` : ''}
+      <button type="button" class="wood-btn small ghost" data-copy-text="${encodeURIComponent(roomCode)}" data-copy-label="房间码已复制">复制房间码</button>
+      ${cleanIps.length ? `<button type="button" class="wood-btn small ghost" data-copy-text="${encodeURIComponent(localUrls)}" data-copy-label="访问地址已复制">复制访问地址</button>` : ''}
+      ${inviteUrl ? `<button type="button" class="wood-btn small ghost" data-copy-text="${encodeURIComponent(inviteUrl)}" data-copy-label="邀请链接已复制">复制邀请链接</button>` : ''}
+      <button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button>
+      ${buildHostBattleButton(roomCode, 1)}
+    </div>
+    <span class="copy-feedback" id="lobby-copy-feedback" aria-live="polite"></span>
+  `;
+};
+
+handleDualSocketMessage = function patchedHandleDualSocketMessage(raw) {
+  let msg = null;
+  try { msg = JSON.parse(raw); } catch (err) { return; }
+  if (!msg || typeof msg !== 'object') return;
+
+  if (msg.type === 'roomJoined') {
+    const role = msg.role || 'p1';
+    const roomCode = normalizeRoomCode(msg.roomCode || createDualRoomCode());
+    const players = Number(msg.players || 1);
+    const rawInviteTarget = state.dualInvite?.ip || $('#ip-input')?.value?.trim() || '';
+    state.dualInvite = {
+      ip: shouldUseHostedRealtime(rawInviteTarget) ? '' : (rawInviteTarget || location.hostname || ''),
+      roomCode,
+      role,
+    };
+    setDualLobbyState({ roomCode, role, players });
+    const actionHtml = role === 'p1'
+      ? buildHostLobbyActions(roomCode, players)
+      : `<div class="lobby-copy-actions"><button type="button" class="wood-btn small ghost" data-dual-start="local">本机试玩</button></div>`;
+    updateLobbyStatus('connected', `已连接实时房间 <strong class="copyable-url">${escapeHTML(roomCode)}</strong>，你的身份是 <strong>${role === 'p1' ? '1P 春' : '2P 秋'}</strong>。${role === 'p1' ? (players >= 2 ? '好友已加入，现在可以点击“开始游戏”。' : '等待好友加入房间后，房主即可点击“开始游戏”。') : '等待房主点击“开始游戏”。'}${actionHtml}`, '联机已连接');
+    return;
+  }
+
+  if (msg.type === 'peerJoined') {
+    const roomCode = normalizeRoomCode(msg.roomCode || state.dualLobby?.roomCode || createDualRoomCode());
+    const players = Number(msg.players || 2);
+    const role = state.dualLobby?.role || 'p1';
+    setDualLobbyState({ roomCode, role, players });
+    if (role === 'p1') {
+      updateLobbyStatus('connected', `好友已进入房间 <strong class="copyable-url">${escapeHTML(roomCode)}</strong>，现在可以点击“开始游戏”开始对战。${buildHostLobbyActions(roomCode, players)}`, '房间已就绪');
+    }
+    return;
+  }
+
+  if (msg.type === 'peerLeft') {
+    const roomCode = normalizeRoomCode(msg.roomCode || state.dualLobby?.roomCode || createDualRoomCode());
+    const players = Number(msg.players || 1);
+    const role = state.dualLobby?.role || 'p1';
+    setDualLobbyState({ roomCode, role, players });
+    if (role === 'p1') {
+      updateLobbyStatus('connected', `好友已离开房间 <strong class="copyable-url">${escapeHTML(roomCode)}</strong>。等待对方重新加入后，再点击“开始游戏”。${buildHostLobbyActions(roomCode, players)}`, '等待好友加入');
+    }
+    return;
+  }
+
+  if (msg.type === 'battleStart') {
+    startBattle({ mode: 'lan', role: state.dual?.role || state.dualLobby?.role || msg.role || 'p2', roomCode: msg.roomCode, words: msg.words });
+    return;
+  }
+
+  if (msg.type === 'dualHit') {
+    applyDualHit(msg, true);
+  }
+};
+
 const originalApplySettingsToGame = applySettingsToGame;
 applySettingsToGame = function patchedApplySettingsToGame() {
   originalApplySettingsToGame();
@@ -3086,3 +3236,19 @@ window.switchScene = function patchedSwitchScene(name) {
 if (audioManager.bgm) {
   audioManager.bgm.muted = false;
 }
+
+$('#btn-server')?.addEventListener('click', () => {
+  if (!state.dualLobby) return;
+  state.dualLobby = { ...state.dualLobby, role: 'p1', players: 1 };
+});
+
+document.addEventListener('click', (e) => {
+  const copyTarget = e.target.closest('[data-copy-text]');
+  if (!copyTarget) return;
+  const text = decodeURIComponent(copyTarget.dataset.copyText || '');
+  if (!text) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  const successLabel = copyTarget.dataset.copyLabel || (/^https?:\/\//.test(text) ? '访问地址已复制' : '已复制');
+  copyLobbyText(text, successLabel);
+}, true);
