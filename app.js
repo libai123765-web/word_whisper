@@ -1542,6 +1542,10 @@ function shouldUseHostedRealtime(raw = '') {
   return !raw || isPrivateNetworkHost(raw);
 }
 
+function isHostedLobbyMode() {
+  return shouldUseHostedRealtime('');
+}
+
 function formatHostWithCurrentPort(raw = '') {
   const host = normalizeNetworkHost(raw);
   if (!host) return '';
@@ -1562,6 +1566,63 @@ function getPreferredShareOrigin(ips = []) {
   if (location.origin && !isLoopbackHost(location.hostname || '')) return location.origin;
   const firstIp = ips.find(Boolean);
   return firstIp ? buildShareOriginFromHost(firstIp) : location.origin;
+}
+
+function extractRoomCodeFromText(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  try {
+    const url = new URL(raw);
+    return normalizeRoomCode(url.searchParams.get('room') || '');
+  } catch (err) {}
+
+  const roomParamIndex = raw.toLowerCase().indexOf('room=');
+  if (roomParamIndex >= 0) {
+    const roomValue = raw.slice(roomParamIndex + 5).split(/[&#]/)[0];
+    return normalizeRoomCode(roomValue);
+  }
+
+  return normalizeRoomCode(raw);
+}
+
+function configureDualLobbyUi() {
+  const hosted = isHostedLobbyMode();
+  const kicker = document.querySelector('.lobby-kicker');
+  const createDesc = document.querySelector('.create-room-card p');
+  const createSub = document.querySelector('#btn-server .btn-sub');
+  const createTips = document.querySelectorAll('.create-room-card .lobby-tips li');
+  const joinDesc = document.querySelector('.join-room-card p');
+  const joinLabel = document.querySelector('.ip-label');
+  const joinInput = document.querySelector('#ip-input');
+
+  if (kicker) kicker.textContent = hosted ? '双人模式 · Online Battle' : '双人模式 · LAN Battle';
+  if (createDesc) {
+    createDesc.textContent = hosted
+      ? '立即生成房间码和邀请链接，也可以直接开始本机双人打字对战。'
+      : '立即生成房间信息，也可以直接开始本机双人打字对战。';
+  }
+  if (createSub) {
+    createSub.textContent = hosted ? '开始 / 分享链接' : '开始 / 显示 IP';
+  }
+  if (createTips[0]) {
+    createTips[0].textContent = hosted ? '双方打开同一个公网网址' : '双方需要连接同一 Wi-Fi / 局域网';
+  }
+  if (createTips[1]) {
+    createTips[1].textContent = hosted ? '创建后把房间码或邀请链接发给好友' : '创建后将 IP 发给好友';
+  }
+  if (joinDesc) {
+    joinDesc.textContent = hosted
+      ? '输入房间码，或直接粘贴邀请链接；如果没有实时房间，也可以先开始本机试玩。'
+      : '输入房主提供的 IP；如果没有联机服务器，也会进入本机可玩模式。';
+  }
+  if (joinLabel) {
+    joinLabel.textContent = hosted ? '房间码 / 邀请链接' : '房主 IP 地址';
+  }
+  if (joinInput) {
+    joinInput.placeholder = hosted ? '例如 WW-4821 或邀请链接' : '例如 192.168.1.8';
+    joinInput.inputMode = hosted ? 'text' : 'decimal';
+  }
 }
 
 function getDualBank() {
@@ -1603,6 +1664,7 @@ function createDualState(options = {}) {
 
 function startDualMode() {
   initLobbyParticles();
+  configureDualLobbyUi();
   resetLobby();
 }
 
@@ -1612,6 +1674,7 @@ function resetLobby() {
   state.dual = null;
   state.vineOffset = 0;
   state.territorySpring = 50;
+  const hostedLobby = isHostedLobbyMode();
   if ($('#lobby')) $('#lobby').hidden = false;
   if ($('#battlefield')) $('#battlefield').hidden = true;
   if ($('#result-dual')) $('#result-dual').hidden = true;
@@ -1620,12 +1683,31 @@ function resetLobby() {
     '点击「创建房间」可以显示 IP，也可以直接开始本机双人对战。两位玩家分别在左右输入框打自己的单词。',
     '等待开始'
   );
+  if (hostedLobby) {
+    updateLobbyStatus(
+      'waiting',
+      '点击「创建房间」生成房间码和邀请链接。好友打开同一个网站后，输入房间码或粘贴邀请链接即可加入。',
+      '等待开始'
+    );
+  }
 
   const invite = state.dualInvite || getDualInviteState();
   const ipInput = $('#ip-input');
   const inviteUsesHostedRealtime = shouldUseHostedRealtime(invite?.ip || '');
+  if (ipInput && hostedLobby) {
+    ipInput.value = inviteUsesHostedRealtime ? (invite?.roomCode || '') : '';
+  }
   if (invite?.ip && ipInput && !ipInput.value.trim() && !inviteUsesHostedRealtime) {
     ipInput.value = invite.ip;
+  }
+
+  if (inviteUsesHostedRealtime) {
+    updateLobbyStatus(
+      'waiting',
+      `已检测到邀请信息。房间码：<strong class="copyable-url">${escapeHTML(invite?.roomCode || 'WORD-WHISPER')}</strong>。点击“加入 / 开始”即可通过当前网站进入实时房间。`,
+      '检测到联机邀请'
+    );
+    return;
   }
 
   if (invite?.ip) {
@@ -1698,13 +1780,34 @@ function updateLobbyStatus(mode, text, title = '') {
 }
 
 function buildRoomReadyHTML(ips, roomCode = createDualRoomCode()) {
+  const hostedLobby = isHostedLobbyMode();
   const cleanIps = ips.filter(Boolean);
   const primary = cleanIps[0] || '127.0.0.1';
   const shareOrigin = getPreferredShareOrigin(cleanIps);
-  const visitOrigin = shareOrigin || buildShareOriginFromHost(primary) || `http://${primary}:3000`;
-  const inviteUrl = shareOrigin
-    ? updateDualInviteUrl('', roomCode, 'p2', shareOrigin)
-    : (cleanIps.length ? updateDualInviteUrl(primary, roomCode, 'p2') : '');
+  const visitOrigin = shareOrigin || location.origin || buildShareOriginFromHost(primary) || `http://${primary}:3000`;
+  const inviteUrl = hostedLobby
+    ? updateDualInviteUrl('', roomCode, 'p2', visitOrigin)
+    : (shareOrigin
+      ? updateDualInviteUrl('', roomCode, 'p2', shareOrigin)
+      : (cleanIps.length ? updateDualInviteUrl(primary, roomCode, 'p2') : ''));
+
+  if (hostedLobby) {
+    return `
+      <span>房间已创建。让好友打开同一个网站后，输入下方房间码，或直接打开邀请链接即可加入。</span>
+      <div class="ip-copy-panel" aria-label="房间码">
+        <button type="button" class="ip-value copyable-text" data-copy-text="${encodeURIComponent(roomCode)}" title="点击复制房间码">${escapeHTML(roomCode)}</button>
+      </div>
+      <span class="status-note">当前公网入口：<strong class="copyable-url">${escapeHTML(visitOrigin)}</strong>。推荐直接复制邀请链接发给好友，加入时不需要再填写本机 IP。</span>
+      <div class="lobby-copy-actions">
+        <button type="button" class="wood-btn small ghost" data-copy-text="${encodeURIComponent(roomCode)}">复制房间码</button>
+        ${inviteUrl ? `<button type="button" class="wood-btn small ghost" data-copy-text="${encodeURIComponent(inviteUrl)}">复制邀请链接</button>` : ''}
+        <button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button>
+        <button type="button" class="wood-btn small ghost" data-dual-start="host" data-room-code="${escapeHTML(roomCode)}">进入房主画面</button>
+      </div>
+      <span class="copy-feedback" id="lobby-copy-feedback" aria-live="polite"></span>
+    `;
+  }
+
   const ipPanel = cleanIps.length
     ? `
       <span>房间已创建。把下面的本机 IP 发给好友：</span>
@@ -2045,8 +2148,9 @@ function handleDualSocketMessage(raw) {
   if (msg.type === 'roomJoined') {
     const role = msg.role || 'p1';
     const roomCode = normalizeRoomCode(msg.roomCode || createDualRoomCode());
+    const rawInviteTarget = state.dualInvite?.ip || $('#ip-input')?.value?.trim() || '';
     state.dualInvite = {
-      ip: state.dualInvite?.ip || $('#ip-input')?.value?.trim() || location.hostname || '',
+      ip: shouldUseHostedRealtime(rawInviteTarget) ? '' : (rawInviteTarget || location.hostname || ''),
       roomCode,
       role,
     };
@@ -2074,9 +2178,14 @@ function handleDualSocketMessage(raw) {
 }
 
 $('#btn-server')?.addEventListener('click', async () => {
-  const roomCode = normalizeRoomCode('WORD-WHISPER');
-  updateLobbyStatus('waiting', '正在准备双人房间……', '正在创建房间');
-  const ips = await getLocalIPs();
+  const roomCode = createDualRoomCode();
+  const hostedLobby = isHostedLobbyMode();
+  updateLobbyStatus(
+    'waiting',
+    hostedLobby ? '正在生成公网房间和邀请链接……' : '正在准备双人房间……',
+    '正在创建房间'
+  );
+  const ips = hostedLobby ? [] : await getLocalIPs();
   updateLobbyStatus('connected', buildRoomReadyHTML(ips, roomCode), '房间已创建');
 
   // 如果使用 npm start 运行，会自动连接内置实时服务器；直接打开 HTML 时不影响本机双人玩法。
@@ -2090,25 +2199,31 @@ $('#btn-server')?.addEventListener('click', async () => {
 });
 
 $('#btn-client')?.addEventListener('click', () => {
-  const requestedIp = $('#ip-input')?.value?.trim() || '';
-  const ip = shouldUseHostedRealtime(requestedIp) ? '' : requestedIp;
-  const roomCode = normalizeRoomCode(state.dualInvite?.roomCode || 'WORD-WHISPER');
-  if (!requestedIp && !shouldUseHostedRealtime(requestedIp)) {
+  const requestedValue = $('#ip-input')?.value?.trim() || '';
+  const hostedLobby = isHostedLobbyMode();
+  const parsedRoomCode = extractRoomCodeFromText(requestedValue);
+  const roomCode = normalizeRoomCode(parsedRoomCode || state.dualInvite?.roomCode || 'WORD-WHISPER');
+  const ip = hostedLobby ? '' : (shouldUseHostedRealtime(requestedValue) ? '' : requestedValue);
+  if (!requestedValue && !hostedLobby) {
     updateLobbyStatus('connected', `未输入 IP，已切换为本机双人模式。<div class="lobby-copy-actions"><button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button></div>`, '本机双人');
+    return;
+  }
+  if (hostedLobby && !requestedValue) {
+    updateLobbyStatus('disconnected', '请输入房间码，或粘贴好友发来的邀请链接。', '等待加入房间');
     return;
   }
   updateLobbyStatus(
     'waiting',
-    shouldUseHostedRealtime(requestedIp)
-      ? `正在通过当前网站加入实时房间。<span class="status-note">检测到你处于公网部署站点，系统会优先连接当前 workers.dev 实时通道。</span>`
+    hostedLobby
+      ? `正在通过当前网站加入实时房间 <strong class="copyable-url">${escapeHTML(roomCode)}</strong>。<span class="status-note">检测到你处于公网部署站点，系统会优先连接当前 workers.dev 实时通道。</span>`
       : `正在连接 <strong class="ip-value copyable-text">${escapeHTML(ip)}</strong>。如果连接失败，也可以立即开始本机双人。`,
     '正在加入房间'
   );
   connectDualSocket({ ip, roomCode, role: 'p2' }).catch(() => {
     updateLobbyStatus(
       'disconnected',
-      shouldUseHostedRealtime(requestedIp)
-        ? `没有连接到当前公网实时房间。<span class="status-note">请确认房主和好友都在打开同一个 workers.dev 网站，并使用同一个房间码；然后再试一次。</span><div class="lobby-copy-actions"><button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button></div>`
+      hostedLobby
+        ? `没有连接到当前公网实时房间 <strong class="copyable-url">${escapeHTML(roomCode)}</strong>。<span class="status-note">请确认房主和好友都在打开同一个 workers.dev 网站，并使用同一个房间码；然后再试一次。</span><div class="lobby-copy-actions"><button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button></div>`
         : `没有连接到 ${escapeHTML(ip)}</strong> 的实时服务器。<span class="status-note">你可以确认房主是否已经启动本地服务，或确认云服务器和域名已经部署完成；也可以先开始本机双人试玩。</span><div class="lobby-copy-actions"><button type="button" class="wood-btn small lobby-start" data-dual-start="local">开始本机双人</button></div>`,
       '联机失败'
     );
